@@ -10,6 +10,8 @@ Usage of BloodyLDIF:
 ```bash
 bloodyAD --host 127.0.0.1 -u lowpriv -p 'password' -d contoso.local get search --filter '(objectClass=*)' --raw >> out.ldif
 bloodyAD --host 127.0.0.1 -u lowpriv -p 'password' -d contoso.local get search --base 'CN=Schema,CN=Configuration,DC=contoso,DC=local' --filter '(objectClass=*)' --raw >> out.ldif
+BloodyLDIF -input out.ldif -output fixed.ldif
+ldif2bloodhound fixed.ldif
 ```
 # Notes
 Make sure to delete ldif2bloodhound artifacts inbetween script runs
