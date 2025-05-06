@@ -26,3 +26,12 @@ go.work.sum
 
 # ldif files
 *.ldif
+
+# archives
+*.tar
+*.tar.gz
+*.zip
+*.7z
+
+# json
+*.json
