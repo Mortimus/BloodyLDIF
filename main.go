@@ -65,6 +65,20 @@ func main() {
 		return
 	}
 
+	// Fix terrible lines
+	dat, err = fixTerribleLines(dat)
+	if err != nil {
+		fmt.Println("Error fixing terrible lines:", err)
+		return
+	}
+
+	// Remove empty lines
+	dat, err = removeEmptyLines(dat)
+	if err != nil {
+		fmt.Println("Error removing empty lines:", err)
+		return
+	}
+
 	// Write the modified data to a new file
 	err = writeToFile(*outputFlag, dat)
 	if err != nil {
@@ -97,6 +111,7 @@ func loadLDIF(dat []byte) (*ldif.LDIF, error) {
 	// Create a new LDIF reader
 	out, err := ldif.Parse(string(dat))
 	if err != nil {
+		// fmt.Printf("Error loading LDIF: %s : %s\n", err.Error(), string(dat))
 		return nil, err
 	}
 
@@ -238,6 +253,71 @@ func fixBase64Lines(dat []byte) ([]byte, error) {
 		// Write the line to the output buffer
 		outputBuffer.Write(line)
 		outputBuffer.Write([]byte("\n"))
+	}
+
+	return outputBuffer.Bytes(), nil
+}
+
+func fixTerribleLines(dat []byte) ([]byte, error) {
+	// Find msExchMasterAccountSid: and base64 the data afterwards
+	// Split the input data into lines
+	lines := bytes.Split(dat, []byte("\n"))
+	var outputBuffer bytes.Buffer
+	for _, line := range lines {
+		trimmedLine := bytes.TrimSpace(line)
+
+		// Check if the line contains a colon and split it into parts
+		parts := bytes.SplitN(trimmedLine, []byte(": "), 2)
+		if len(parts) == 2 {
+			varName := string(bytes.TrimSpace(parts[0]))
+			// Check if the variable name is in the map and if it only has one colon
+			if varName == "msExchMasterAccountSid" {
+				// fmt.Printf("Found msExchMasterAccountSid: %s\n", string(parts[1]))
+				// check if the data is base64 encoded
+				encoded := parts[1]
+				if !isBase64(encoded) {
+					// If the data is not base64 encoded, encode it
+					encoded = []byte(base64.StdEncoding.EncodeToString(encoded))
+				} else {
+					// DEBUG
+					fmt.Printf("Not base64: %s\n", string(encoded))
+				}
+				line = append(parts[0], append([]byte(":: "), encoded...)...)
+			}
+		}
+
+		outputBuffer.Write(line)
+		outputBuffer.Write([]byte("\n"))
+	}
+	return outputBuffer.Bytes(), nil
+}
+
+// remove lines that don't contain a : but aren't empty and aren't after whenCreated
+func removeEmptyLines(dat []byte) ([]byte, error) {
+	// Split the input data into lines
+	lines := bytes.Split(dat, []byte("\n"))
+	var outputBuffer bytes.Buffer
+
+	for i, line := range lines {
+		trimmedLine := bytes.TrimSpace(line)
+		if len(trimmedLine) > 0 && bytes.Contains(trimmedLine, []byte(":")) {
+			outputBuffer.Write(line)
+			outputBuffer.Write([]byte("\n"))
+		}
+		// if the line contains whenCreated, keep it and the next line
+		// if bytes.Contains(trimmedLine, []byte("whenCreated:")) {
+		// 	outputBuffer.Write(line)
+		// 	outputBuffer.Write([]byte("\n"))
+		// 	if i+1 < len(lines) {
+		// 		outputBuffer.Write(lines[i+1])
+		// 		outputBuffer.Write([]byte("\n"))
+		// 	}
+		// }
+		// if the line+2 contains distinguishedName then keep the blank line
+		if i+2 < len(lines) && bytes.Contains(lines[i+2], []byte("distinguishedName:")) {
+			// outputBuffer.Write(line)
+			outputBuffer.Write([]byte("\n"))
+		}
 	}
 
 	return outputBuffer.Bytes(), nil
